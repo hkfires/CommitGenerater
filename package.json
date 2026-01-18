@@ -1,0 +1,99 @@
+{
+  "name": "commit-generater",
+  "displayName": "Commit Generater",
+  "description": "AI-powered Git commit message generator",
+  "version": "0.0.1",
+  "publisher": "local",
+  "icon": "resources/icon.jpg",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "enabledApiProposals": [
+    "contribSourceControlInputBoxMenu"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "commitGenerater.generate",
+        "title": "Generate Commit Message",
+        "icon": {
+          "light": "resources/icon-light.svg",
+          "dark": "resources/icon-dark.svg"
+        },
+        "category": "Commit Generater"
+      },
+      {
+        "command": "commitGenerater.selectModel",
+        "title": "Select AI Model",
+        "category": "Commit Generater"
+      },
+      {
+        "command": "commitGenerater.setup",
+        "title": "Setup Wizard",
+        "category": "Commit Generater"
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "commitGenerater.generate",
+          "group": "navigation",
+          "when": "scmProvider == git"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Commit Generater",
+      "properties": {
+        "commitGenerater.apiBaseUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "description": "OpenAI兼容API的Base URL (不含尾部斜杠)"
+        },
+        "commitGenerater.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API Key"
+        },
+        "commitGenerater.model": {
+          "type": "string",
+          "default": "gpt-5",
+          "description": "模型名称"
+        },
+        "commitGenerater.language": {
+          "type": "string",
+          "enum": [
+            "en",
+            "zh"
+          ],
+          "default": "zh",
+          "description": "生成commit信息的语言"
+        },
+        "commitGenerater.maxDiffLength": {
+          "type": "number",
+          "default": 65536,
+          "description": "发送给AI的最大diff字符数"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.3.0"
+  }
+}
