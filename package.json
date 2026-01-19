@@ -2,17 +2,17 @@
   "name": "commit-generater",
   "displayName": "Commit Generater",
   "description": "AI-powered Git commit message generator using OpenAI-compatible APIs",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "hKFirEs",
   "license": "MIT",
   "icon": "resources/icon.jpg",
   "repository": {
     "type": "git",
-    "url": "https://github.com/hkfires/CommitGenerate"
+    "url": "https://github.com/hkfires/CommitGenerater"
   },
-  "homepage": "https://github.com/hkfires/CommitGenerate#readme",
+  "homepage": "https://github.com/hkfires/CommitGenerater#readme",
   "bugs": {
-    "url": "https://github.com/hkfires/CommitGenerate/issues"
+    "url": "https://github.com/hkfires/CommitGenerater/issues"
   },
   "keywords": [
     "git",
@@ -69,7 +69,7 @@
         "commitGenerater.apiBaseUrl": {
           "type": "string",
           "default": "https://api.openai.com/v1",
-          "description": "OpenAI兼容API的Base URL (不含尾部斜杠)"
+          "description": "Base URL for OpenAI-compatible APIs (no trailing slash)"
         },
         "commitGenerater.apiKey": {
           "type": "string",
@@ -79,7 +79,7 @@
         "commitGenerater.model": {
           "type": "string",
           "default": "gpt-5",
-          "description": "模型名称"
+          "description": "Model name"
         },
         "commitGenerater.language": {
           "type": "string",
@@ -87,13 +87,13 @@
             "en",
             "zh"
           ],
-          "default": "zh",
-          "description": "生成commit信息的语言"
+          "default": "en",
+          "description": "Language for generated commit messages"
         },
         "commitGenerater.maxDiffLength": {
           "type": "number",
           "default": 65536,
-          "description": "发送给AI的最大diff字符数"
+          "description": "Maximum diff length (characters) sent to the AI"
         }
       }
     }

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.3] - 2026-01-19
+
+### Changed
+
+- Updated configuration descriptions to English
+- Switched default commit message language to English (`commitGenerater.language`: `en`)
+
 ## [0.0.2] - 2025-01-19
 
 ### Changed
