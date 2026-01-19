@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getConfig } from './config';
+import { filterDiffExcludingLockFiles } from './exclusionUtils';
 
 interface Change {
   uri: vscode.Uri;
@@ -102,6 +103,14 @@ export async function getDiff(rootUri: vscode.Uri): Promise<string> {
     }
   }
   
+  if (!diff || diff.trim() === '') {
+    return '';
+  }
+  
+  // Filter out lock files from the diff
+  diff = filterDiffExcludingLockFiles(diff);
+  
+  // Check again after filtering
   if (!diff || diff.trim() === '') {
     return '';
   }

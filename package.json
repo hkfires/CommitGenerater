@@ -1,10 +1,27 @@
 {
   "name": "commit-generater",
   "displayName": "Commit Generater",
-  "description": "AI-powered Git commit message generator",
-  "version": "0.0.1",
-  "publisher": "local",
+  "description": "AI-powered Git commit message generator using OpenAI-compatible APIs",
+  "version": "0.0.2",
+  "publisher": "hKFirEs",
+  "license": "MIT",
   "icon": "resources/icon.jpg",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hkfires/CommitGenerate"
+  },
+  "homepage": "https://github.com/hkfires/CommitGenerate#readme",
+  "bugs": {
+    "url": "https://github.com/hkfires/CommitGenerate/issues"
+  },
+  "keywords": [
+    "git",
+    "commit",
+    "ai",
+    "openai",
+    "conventional-commits",
+    "scm"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -15,9 +32,6 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
-  "enabledApiProposals": [
-    "contribSourceControlInputBoxMenu"
-  ],
   "contributes": {
     "commands": [
       {
