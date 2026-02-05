@@ -51,9 +51,13 @@ const SYSTEM_PROMPT_ZH = `# Conventional Commit Message 生成器
 - 每行不超过 72 个字符
 - 用于需要额外说明的复杂变更
 
+### 破坏性变更标记（可选）
+- 在 type 或 scope 后添加 \`!\`：\`feat!:\`、\`fix(scope)!:\`
+- 或在 footer 中使用 \`BREAKING CHANGE: 描述\`
+- 两种方式等价，都表示破坏性变更（MAJOR 版本升级）
+
 ### Footer 指南（可选）
 - 在 body 后空一行开始
-- **Breaking Changes**: \`BREAKING CHANGE: 描述\`
 
 ## 分析指令
 分析暂存的变更时：
@@ -116,9 +120,13 @@ Generate commit messages following this exact structure:
 - Wrap at 72 characters per line
 - Use for complex changes requiring explanation
 
+### Breaking Change Indicator (Optional)
+- Add \`!\` after type or scope: \`feat!:\`, \`fix(scope)!:\`
+- Or use footer: \`BREAKING CHANGE: description\`
+- Both are equivalent and indicate breaking changes (MAJOR version bump)
+
 ### Footer Guidelines (Optional)
 - Start one blank line after body
-- **Breaking Changes**: \`BREAKING CHANGE: description\`
 
 ## Analysis Instructions
 When analyzing staged changes:

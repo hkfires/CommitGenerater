@@ -2,7 +2,7 @@
   "name": "commit-generater",
   "displayName": "Commit Generater",
   "description": "AI-powered Git commit message generator using OpenAI-compatible APIs",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "hKFirEs",
   "license": "MIT",
   "icon": "resources/icon.jpg",
