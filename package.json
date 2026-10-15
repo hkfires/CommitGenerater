@@ -2,7 +2,7 @@
   "name": "commit-generater",
   "displayName": "Commit Generater",
   "description": "AI-powered Git commit message generator using OpenAI-compatible APIs",
-  "version": "0.0.4",
+  "version": "1.0.0",
   "publisher": "hKFirEs",
   "license": "MIT",
   "icon": "resources/icon.jpg",
@@ -33,6 +33,15 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "icons": {
+      "commit-generater-icon": {
+        "description": "Commit Generater icon",
+        "default": {
+          "fontPath": "./resources/commit-generater-icons.woff",
+          "fontCharacter": "\\E001"
+        }
+      }
+    },
     "commands": [
       {
         "command": "commitGenerater.generate",
@@ -46,6 +55,17 @@
       {
         "command": "commitGenerater.selectModel",
         "title": "Select AI Model",
+        "category": "Commit Generater"
+      },
+      {
+        "command": "commitGenerater.selectReasoningEffort",
+        "title": "Select Reasoning Effort",
+        "category": "Commit Generater"
+      },
+      {
+        "command": "commitGenerater.openSettings",
+        "title": "Settings",
+        "icon": "$(gear)",
         "category": "Commit Generater"
       },
       {
@@ -67,32 +87,75 @@
       "title": "Commit Generater",
       "properties": {
         "commitGenerater.apiBaseUrl": {
+          "scope": "machine",
           "type": "string",
           "default": "https://api.openai.com/v1",
           "description": "Base URL for OpenAI-compatible APIs (no trailing slash)"
         },
         "commitGenerater.apiKey": {
+          "scope": "machine",
           "type": "string",
           "default": "",
           "description": "API Key"
         },
         "commitGenerater.model": {
+          "scope": "machine",
           "type": "string",
           "default": "gpt-5",
-          "description": "Model name"
+          "description": "Model name. Use the `Select AI Model` command (or the status bar item) to pick from the API's /models list, or type any name here"
         },
-        "commitGenerater.language": {
+        "commitGenerater.reasoningEffort": {
+          "scope": "machine",
           "type": "string",
           "enum": [
+            "default",
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "enumDescriptions": [
+            "Do not send reasoning_effort (use the provider default)",
+            "Disable reasoning",
+            "Minimal reasoning",
+            "Low reasoning effort",
+            "Medium reasoning effort",
+            "High reasoning effort",
+            "Extra high reasoning effort",
+            "Maximum reasoning effort"
+          ],
+          "default": "default",
+          "description": "Reasoning effort (reasoning_effort) sent to the model"
+        },
+        "commitGenerater.language": {
+          "scope": "machine",
+          "type": "string",
+          "enum": [
+            "auto",
             "en",
             "zh"
           ],
-          "default": "en",
+          "enumDescriptions": [
+            "Detect from recent commit history; falls back to the VS Code display language for repositories without commits",
+            "English",
+            "Chinese"
+          ],
+          "default": "auto",
           "description": "Language for generated commit messages"
         },
+        "commitGenerater.includeAgentsMd": {
+          "scope": "machine",
+          "type": "boolean",
+          "default": true,
+          "description": "Include AGENTS.md from the repository root as project guidelines when generating commit messages"
+        },
         "commitGenerater.maxDiffLength": {
+          "scope": "machine",
           "type": "number",
-          "default": 65536,
+          "default": 131072,
           "description": "Maximum diff length (characters) sent to the AI"
         }
       }

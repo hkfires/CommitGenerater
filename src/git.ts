@@ -7,6 +7,11 @@ interface Change {
   status: number;
 }
 
+export interface GitCommit {
+  message: string;
+  parents: string[];
+}
+
 export interface GitRepository {
   rootUri: vscode.Uri;
   inputBox: { value: string };
@@ -17,6 +22,7 @@ export interface GitRepository {
   };
   diff(cached?: boolean): Promise<string>;
   show(ref: string, filePath: string): Promise<string>;
+  log(options?: { maxEntries?: number }): Promise<GitCommit[]>;
 }
 
 export interface GitAPI {
@@ -79,7 +85,7 @@ async function getNewRepoChanges(repo: GitRepository): Promise<string> {
   return changes.join('\n\n');
 }
 
-export async function getDiff(rootUri: vscode.Uri): Promise<string> {
+export async function resolveRepository(rootUri: vscode.Uri): Promise<GitRepository> {
   const gitAPI = await getGitExtension();
   if (!gitAPI) {
     throw new Error('Git extension not found');
@@ -89,7 +95,27 @@ export async function getDiff(rootUri: vscode.Uri): Promise<string> {
   if (!repo) {
     throw new Error('No Git repository found');
   }
-  
+  return repo;
+}
+
+/**
+ * Return subject lines of up to `maxEntries` recent non-merge commits, newest first.
+ * Fetches extra history so merge commits do not shrink the sample.
+ * Returns an empty array for repositories without history.
+ */
+export async function getRecentCommitSubjects(repo: GitRepository, maxEntries: number): Promise<string[]> {
+  if (!repo.state.HEAD?.commit) {
+    return [];
+  }
+  const commits = await repo.log({ maxEntries: maxEntries * 3 });
+  return commits
+    .filter(commit => commit.parents.length <= 1)
+    .map(commit => commit.message.split('\n')[0].trim())
+    .filter(subject => subject.length > 0)
+    .slice(0, maxEntries);
+}
+
+export async function getDiff(repo: GitRepository): Promise<string> {
   let diff = await repo.diff(true);
   
   if (!diff || diff.trim() === '') {

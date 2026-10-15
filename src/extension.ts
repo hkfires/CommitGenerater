@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import { CommitMessageProvider, generateCommitCommand } from './commitMessageProvider';
 import { selectModelCommand } from './commands/selectModel';
+import { openSettingsMenuCommand, selectReasoningEffortCommand } from './commands/settings';
 import { runSetupWizard } from './setup';
+import { registerStatusBarItem } from './statusBar';
 
 async function ensureGitExtension(): Promise<void> {
   const gitExtension = vscode.extensions.getExtension('vscode.git');
@@ -32,6 +34,13 @@ export async function activate(context: vscode.ExtensionContext) {
     runSetupWizard
   );
   context.subscriptions.push(setupDisposable);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('commitGenerater.openSettings', openSettingsMenuCommand),
+    vscode.commands.registerCommand('commitGenerater.selectReasoningEffort', selectReasoningEffortCommand)
+  );
+
+  registerStatusBarItem(context);
 
   const scmAny = vscode.scm as any;
   if (typeof scmAny.registerSourceControlInputBoxValueProvider === 'function') {

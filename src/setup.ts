@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { getConfig, updateConfig } from './config';
-import { listModels } from './ai/models';
+import { CommitLanguageSetting, getConfig, updateConfig } from './config';
+import { pickModel } from './commands/selectModel';
 
 export function needsSetup(): boolean {
   const config = getConfig();
@@ -9,7 +9,7 @@ export function needsSetup(): boolean {
 
 export async function runSetupWizard(): Promise<boolean> {
   const baseUrl = await vscode.window.showInputBox({
-    title: 'Commit Generater Setup (1/3)',
+    title: 'Commit Generater Setup (1/4)',
     prompt: 'Enter your OpenAI-compatible API Base URL',
     value: getConfig().apiBaseUrl,
     placeHolder: 'https://api.openai.com/v1',
@@ -34,7 +34,7 @@ export async function runSetupWizard(): Promise<boolean> {
   await updateConfig('apiBaseUrl', baseUrl.replace(/\/$/, ''));
 
   const apiKey = await vscode.window.showInputBox({
-    title: 'Commit Generater Setup (2/3)',
+    title: 'Commit Generater Setup (2/4)',
     prompt: 'Enter your API Key',
     password: true,
     placeHolder: 'sk-...',
@@ -53,75 +53,27 @@ export async function runSetupWizard(): Promise<boolean> {
 
   await updateConfig('apiKey', apiKey);
 
-  const selectModel = await vscode.window.showQuickPick(
-    ['Select from available models', 'Enter model name manually'],
-    {
-      title: 'Commit Generater Setup (3/3)',
-      placeHolder: 'How would you like to configure the model?',
-      ignoreFocusOut: true,
-    }
-  );
-
-  if (selectModel === undefined) {
-    return false;
-  }
-
-  if (selectModel === 'Select from available models') {
-    try {
-      const models = await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: 'Fetching available models...',
-        },
-        async () => {
-          return await listModels();
-        }
-      );
-
-      if (models && models.length > 0) {
-        const selectedModel = await vscode.window.showQuickPick(models, {
-          title: 'Select a Model',
-          placeHolder: 'Choose the model for commit message generation',
-          ignoreFocusOut: true,
-        });
-
-        if (selectedModel) {
-          await updateConfig('model', selectedModel);
-        }
-      } else {
-        vscode.window.showWarningMessage('No models found. Using default model.');
-      }
-    } catch (error) {
-      vscode.window.showWarningMessage(`Failed to fetch models: ${error}. Using default model.`);
-    }
-  } else {
-    const modelName = await vscode.window.showInputBox({
-      title: 'Enter Model Name',
-      prompt: 'Enter the model name to use',
-      value: getConfig().model,
-      placeHolder: 'gpt-4o-mini',
-      ignoreFocusOut: true,
-    });
-
-    if (modelName) {
-      await updateConfig('model', modelName);
-    }
+  // Step 3/4: model (fetched from /models, or typed manually). Cancelling keeps the current model.
+  const model = await pickModel();
+  if (model) {
+    await updateConfig('model', model);
   }
 
   const language = await vscode.window.showQuickPick(
     [
+      { label: 'Auto', description: 'Follow the language of recent commits', value: 'auto' },
       { label: '中文', value: 'zh' },
       { label: 'English', value: 'en' },
     ],
     {
-      title: 'Commit Message Language',
+      title: 'Commit Generater Setup (4/4): Commit Message Language',
       placeHolder: 'Select the language for generated commit messages',
       ignoreFocusOut: true,
     }
   );
 
   if (language) {
-    await updateConfig('language', language.value as 'zh' | 'en');
+    await updateConfig('language', language.value as CommitLanguageSetting);
   }
 
   vscode.window.showInformationMessage('Commit Generater setup complete! Click the ✨ button to generate commit messages.');

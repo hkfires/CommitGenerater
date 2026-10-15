@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getConfig } from '../config';
+import { getConfig, ReasoningEffort } from '../config';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -38,12 +38,14 @@ export class AIClient {
   private baseUrl: string;
   private apiKey: string;
   private model: string;
+  private reasoningEffort: ReasoningEffort;
 
   constructor() {
     const config = getConfig();
     this.baseUrl = config.apiBaseUrl;
     this.apiKey = config.apiKey;
     this.model = config.model;
+    this.reasoningEffort = config.reasoningEffort;
   }
 
   async chat(messages: ChatMessage[], token?: vscode.CancellationToken): Promise<string> {
@@ -59,18 +61,21 @@ export class AIClient {
       });
     }
 
+    const body: Record<string, unknown> = {
+      model: this.model,
+      messages,
+    };
+    if (this.reasoningEffort !== 'default') {
+      body.reasoning_effort = this.reasoningEffort;
+    }
+
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.apiKey}`,
       },
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        temperature: 0.7,
-        max_tokens: 500,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 

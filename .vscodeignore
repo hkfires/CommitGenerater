@@ -1,9 +1,17 @@
+# Editor and tooling settings
 .vscode/**
 .vscode-test/**
+.claude/**
+
+# Sources and build tooling (only compiled out/**/*.js is shipped)
 src/**
-.gitignore
+scripts/**
 tsconfig.json
-*.map
-*.d.ts
+.gitignore
+
+# Build artifacts not needed at runtime (also covers vscode.proposed.*.d.ts)
+**/*.map
+**/*.d.ts
+
+# Dependencies (no runtime dependencies)
 node_modules/**
-vscode.proposed.*.d.ts

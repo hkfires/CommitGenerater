@@ -1,5 +1,5 @@
 import { ChatMessage } from './client';
-import { getConfig } from '../config';
+import { CommitLanguage } from '../config';
 
 const SYSTEM_PROMPT_ZH = `# Conventional Commit Message 生成器
 
@@ -9,6 +9,7 @@ const SYSTEM_PROMPT_ZH = `# Conventional Commit Message 生成器
 ## 重要规则
 - 只输出 commit message 本身，不要包含任何解释、代码块标记或引号
 - 不要输出任何前缀如 "commit message:" 或类似内容
+- 使用简体中文撰写 description 和 body，type、scope 及代码标识符保持原样
 
 ## Conventional Commits 格式
 生成的提交信息必须遵循以下格式：
@@ -77,6 +78,7 @@ You are an expert Git commit message generator that creates conventional commit 
 ## Critical Rules
 - Output ONLY the commit message, no explanations, code block markers, or quotes
 - Do NOT include any prefix like "commit message:" or similar
+- Write the description and body in English
 
 ## Conventional Commits Format
 Generate commit messages following this exact structure:
@@ -138,11 +140,33 @@ When analyzing staged changes:
 
 Return ONLY the commit message in the conventional format, nothing else.`;
 
-export function buildPrompt(diff: string): ChatMessage[] {
-  const config = getConfig();
-  const systemPrompt = config.language === 'zh' ? SYSTEM_PROMPT_ZH : SYSTEM_PROMPT_EN;
+function buildAgentsSection(language: CommitLanguage, agentsContent: string): string {
+  return language === 'zh'
+    ? `
+
+## 项目规范（来自 AGENTS.md）
+以下内容来自项目根目录的 AGENTS.md。若其中包含与 commit message 相关的约定（格式、语言、type、scope 等），以其为准并优先于上述默认规则（包括输出语言）；与 commit message 无关的内容请忽略。无论如何，都必须只输出 commit message 本身，不得包含解释、代码块标记、引号或前缀。
+
+<agents_md>
+${agentsContent}
+</agents_md>`
+    : `
+
+## Project Guidelines (from AGENTS.md)
+The following content comes from AGENTS.md in the project root. If it defines commit message conventions (format, language, types, scopes, etc.), follow them and let them take precedence over the defaults above (including the output language); ignore anything unrelated to commit messages. Regardless, output ONLY the commit message itself, with no explanations, code block markers, quotes, or prefixes.
+
+<agents_md>
+${agentsContent}
+</agents_md>`;
+}
+
+export function buildPrompt(diff: string, language: CommitLanguage, agentsContent?: string): ChatMessage[] {
+  let systemPrompt = language === 'zh' ? SYSTEM_PROMPT_ZH : SYSTEM_PROMPT_EN;
+  if (agentsContent) {
+    systemPrompt += buildAgentsSection(language, agentsContent);
+  }
   
-  const userPrompt = config.language === 'zh'
+  const userPrompt = language === 'zh'
     ? `## Git 变更上下文
 
 ### 已暂存变更的完整 Diff
