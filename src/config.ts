@@ -7,6 +7,10 @@ export type CommitLanguageSetting = 'auto' | CommitLanguage;
 export const REASONING_EFFORTS = ['default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type ReasoningEffort = typeof REASONING_EFFORTS[number];
 
+// Generator used by the ✨ button of the GitHub Pull Requests extension.
+export const PR_TITLE_PROVIDERS = ['ask', 'commitGenerater', 'copilot'] as const;
+export type PullRequestTitleProvider = typeof PR_TITLE_PROVIDERS[number];
+
 export interface CommitGeneraterConfig {
   apiBaseUrl: string;
   apiKey: string;
@@ -15,6 +19,7 @@ export interface CommitGeneraterConfig {
   language: CommitLanguageSetting;
   includeAgentsMd: boolean;
   maxDiffLength: number;
+  prTitleProvider: PullRequestTitleProvider;
 }
 
 export function getConfig(): CommitGeneraterConfig {
@@ -28,6 +33,7 @@ export function getConfig(): CommitGeneraterConfig {
     language: (config.inspect<CommitLanguageSetting>('language')?.globalValue ?? 'auto'),
     includeAgentsMd: (config.inspect<boolean>('includeAgentsMd')?.globalValue ?? true),
     maxDiffLength: (config.inspect<number>('maxDiffLength')?.globalValue ?? 131072),
+    prTitleProvider: (config.inspect<PullRequestTitleProvider>('prTitleProvider')?.globalValue ?? 'ask'),
   };
 }
 

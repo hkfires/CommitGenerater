@@ -1,11 +1,22 @@
 import * as vscode from 'vscode';
-import { CommitLanguage, CommitLanguageSetting } from './config';
+import { CommitGeneraterConfig, CommitLanguage, CommitLanguageSetting } from './config';
 import { GitRepository, getRecentCommitSubjects } from './git';
 
 const AGENTS_FILE_NAME = 'AGENTS.md';
 const MAX_AGENTS_LENGTH = 16000;
 const HISTORY_SAMPLE_SIZE = 30;
 const CJK_PATTERN = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
+
+export interface PromptContext {
+  language: CommitLanguage;
+  agentsContent?: string;
+  // Optional context failures, already replaced by fallbacks; callers decide how to report them.
+  warnings: string[];
+}
+
+function displayLanguage(): CommitLanguage {
+  return vscode.env.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+}
 
 /**
  * Read AGENTS.md from the repository root. Returns undefined when the file
@@ -49,9 +60,42 @@ export async function resolveCommitLanguage(
 
   const subjects = await getRecentCommitSubjects(repo, HISTORY_SAMPLE_SIZE);
   if (subjects.length === 0) {
-    return vscode.env.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+    return displayLanguage();
   }
 
   const zhCount = subjects.filter(subject => CJK_PATTERN.test(subject)).length;
   return zhCount * 2 > subjects.length ? 'zh' : 'en';
+}
+
+/**
+ * Resolve the output language and AGENTS.md content for a prompt. Failures of
+ * these optional reads are translated into warnings and explicit fallbacks:
+ * guidelines are omitted and the language falls back to the VS Code display language.
+ * Without a repository only the configured or display language is available.
+ */
+export async function loadPromptContext(
+  repo: GitRepository | undefined,
+  config: Pick<CommitGeneraterConfig, 'language' | 'includeAgentsMd'>
+): Promise<PromptContext> {
+  if (!repo) {
+    return { language: config.language === 'auto' ? displayLanguage() : config.language, warnings: [] };
+  }
+
+  const [languageResult, agentsResult] = await Promise.allSettled([
+    resolveCommitLanguage(repo, config.language),
+    config.includeAgentsMd ? readAgentsFile(repo.rootUri) : Promise.resolve(undefined),
+  ]);
+
+  const language = languageResult.status === 'fulfilled' ? languageResult.value : displayLanguage();
+  const agentsContent = agentsResult.status === 'fulfilled' ? agentsResult.value : undefined;
+  const warnings: string[] = [];
+  if (agentsResult.status === 'rejected') {
+    const error = agentsResult.reason;
+    warnings.push(`Could not read AGENTS.md (${error instanceof Error ? error.message : String(error)}); project guidelines will be omitted.`);
+  }
+  if (languageResult.status === 'rejected') {
+    const error = languageResult.reason;
+    warnings.push(`Could not read Git history (${error instanceof Error ? error.message : String(error)}); using ${language === 'zh' ? 'Chinese' : 'English'} based on the VS Code display language.`);
+  }
+  return { language, agentsContent, warnings };
 }

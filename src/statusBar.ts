@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { getConfig } from './config';
-import { LANGUAGE_LABELS } from './commands/settings';
+import { LANGUAGE_LABELS, PR_TITLE_PROVIDER_LABELS, REASONING_EFFORT_LABELS } from './commands/settings';
 
 /**
- * Status bar entry (bottom right) showing the active model and reasoning
- * effort. Clicking it opens the settings menu.
+ * Status bar entry (bottom right) showing the active model; the tooltip lists
+ * the other settings. Clicking it opens the settings menu.
  */
 export function registerStatusBarItem(context: vscode.ExtensionContext): void {
   const item = vscode.window.createStatusBarItem(
@@ -17,15 +17,15 @@ export function registerStatusBarItem(context: vscode.ExtensionContext): void {
 
   const update = () => {
     const config = getConfig();
-    const effort = config.reasoningEffort === 'default' ? '' : ` · ${config.reasoningEffort}`;
     // Contributed icon (package.json `contributes.icons`), same glyph as the SCM title button.
-    item.text = `$(commit-generater-icon) ${config.model}${effort}`;
+    item.text = `$(commit-generater-icon) ${config.model}`;
     item.tooltip = [
       'Commit Generater',
       `Model: ${config.model}`,
-      `Reasoning effort: ${config.reasoningEffort}`,
+      `Reasoning Effort: ${REASONING_EFFORT_LABELS[config.reasoningEffort] ?? config.reasoningEffort}`,
       `Language: ${LANGUAGE_LABELS[config.language] ?? config.language}`,
       `AGENTS.md: ${config.includeAgentsMd ? 'On' : 'Off'}`,
+      `PR Title Generator: ${PR_TITLE_PROVIDER_LABELS[config.prTitleProvider] ?? config.prTitleProvider}`,
       '',
       'Click to configure',
     ].join('\n');

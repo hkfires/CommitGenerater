@@ -3,7 +3,7 @@ import { getDiff, getGitExtension, resolveRepository } from './git';
 import { AIClient } from './ai/client';
 import { buildPrompt } from './ai/prompt';
 import { getConfig } from './config';
-import { readAgentsFile, resolveCommitLanguage } from './projectContext';
+import { loadPromptContext } from './projectContext';
 import { needsSetup, promptForSetup } from './setup';
 
 export class CommitMessageProvider implements vscode.SourceControlInputBoxValueProvider {
@@ -38,28 +38,9 @@ export async function generateCommitMessageForUri(
       return undefined;
     }
 
-    const config = getConfig();
-    const [languageResult, agentsResult] = await Promise.allSettled([
-      resolveCommitLanguage(repo, config.language),
-      config.includeAgentsMd ? readAgentsFile(repo.rootUri) : Promise.resolve(undefined),
-    ]);
+    const { language, agentsContent, warnings } = await loadPromptContext(repo, getConfig());
     if (token?.isCancellationRequested) {
       return undefined;
-    }
-
-    // Optional context failures are translated here into warnings and explicit fallbacks.
-    const language = languageResult.status === 'fulfilled'
-      ? languageResult.value
-      : vscode.env.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
-    const agentsContent = agentsResult.status === 'fulfilled' ? agentsResult.value : undefined;
-    const warnings: string[] = [];
-    if (agentsResult.status === 'rejected') {
-      const error = agentsResult.reason;
-      warnings.push(`Could not read AGENTS.md (${error instanceof Error ? error.message : String(error)}); project guidelines will be omitted.`);
-    }
-    if (languageResult.status === 'rejected') {
-      const error = languageResult.reason;
-      warnings.push(`Could not read Git history (${error instanceof Error ? error.message : String(error)}); using ${language === 'zh' ? 'Chinese' : 'English'} based on the VS Code display language.`);
     }
     if (warnings.length > 0) {
       // Non-modal notification: do not wait for dismissal before generating.

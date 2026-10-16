@@ -2,7 +2,7 @@
   "name": "commit-generater",
   "displayName": "Commit Generater",
   "description": "AI-powered Git commit message generator using OpenAI-compatible APIs",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "hKFirEs",
   "license": "MIT",
   "icon": "resources/icon.jpg",
@@ -117,6 +117,16 @@
             "xhigh",
             "max"
           ],
+          "enumItemLabels": [
+            "Default",
+            "None",
+            "Minimal",
+            "Low",
+            "Medium",
+            "High",
+            "XHigh",
+            "Max"
+          ],
           "enumDescriptions": [
             "Do not send reasoning_effort (use the provider default)",
             "Disable reasoning",
@@ -138,25 +148,51 @@
             "en",
             "zh"
           ],
+          "enumItemLabels": [
+            "Auto",
+            "English",
+            "中文"
+          ],
           "enumDescriptions": [
             "Detect from recent commit history; falls back to the VS Code display language for repositories without commits",
             "English",
             "Chinese"
           ],
           "default": "auto",
-          "description": "Language for generated commit messages"
+          "description": "Language for generated commit messages and pull request titles/descriptions"
         },
         "commitGenerater.includeAgentsMd": {
           "scope": "machine",
           "type": "boolean",
           "default": true,
-          "description": "Include AGENTS.md from the repository root as project guidelines when generating commit messages"
+          "description": "Include AGENTS.md from the repository root as project guidelines when generating commit messages and pull request titles/descriptions"
         },
         "commitGenerater.maxDiffLength": {
           "scope": "machine",
           "type": "number",
           "default": 131072,
           "description": "Maximum diff length (characters) sent to the AI"
+        },
+        "commitGenerater.prTitleProvider": {
+          "scope": "machine",
+          "type": "string",
+          "enum": [
+            "ask",
+            "commitGenerater",
+            "copilot"
+          ],
+          "enumItemLabels": [
+            "Ask",
+            "CommitGenerater",
+            "Copilot"
+          ],
+          "enumDescriptions": [
+            "Ask which generator to use each time",
+            "Always use Commit Generater",
+            "Always use GitHub Copilot"
+          ],
+          "default": "ask",
+          "markdownDescription": "Generator used by the ✨ button next to the title in the Create Pull Request view of the [GitHub Pull Requests](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) extension"
         }
       }
     }

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-10-16
+
+### Added
+
+- **Pull request title and description generation**: The ✨ button in the Create Pull Request view of the GitHub Pull Requests extension can now generate the title and description with the configured model, following the PR template, related issues and AGENTS.md
+- New `commitGenerater.prTitleProvider` setting (`ask` / `commitGenerater` / `copilot`) to choose the generator for that button, also available from the quick settings menu. `ask` shows a picker when other generators such as GitHub Copilot are registered
+
 ## [1.0.0] - 2026-10-15
 
 ### Added

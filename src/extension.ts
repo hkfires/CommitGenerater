@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CommitMessageProvider, generateCommitCommand } from './commitMessageProvider';
 import { selectModelCommand } from './commands/selectModel';
 import { openSettingsMenuCommand, selectReasoningEffortCommand } from './commands/settings';
+import { registerPullRequestProvider } from './pullRequestProvider';
 import { runSetupWizard } from './setup';
 import { registerStatusBarItem } from './statusBar';
 
@@ -41,6 +42,9 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   registerStatusBarItem(context);
+
+  // Hooks into the GitHub Pull Requests extension without blocking activation.
+  registerPullRequestProvider(context);
 
   const scmAny = vscode.scm as any;
   if (typeof scmAny.registerSourceControlInputBoxValueProvider === 'function') {
