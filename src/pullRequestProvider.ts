@@ -23,6 +23,79 @@ interface PullRequestApi {
   registerTitleAndDescriptionProvider(title: string, provider: TitleAndDescriptionProvider): vscode.Disposable;
 }
 
+interface FolderManager {
+  getTitleAndDescriptionProvider(title?: string): ProviderEntry | undefined;
+}
+
+/**
+ * GHPR gates all providers behind chat.disableAIFeatures in its folder managers,
+ * before consulting the public provider API. Keep only our standalone provider
+ * available there; do not enable Copilot, reviewers, or change the user's setting.
+ * This compatibility shim is scoped to manager instances and restored on disposal.
+ */
+function allowStandaloneProvider(
+  context: vscode.ExtensionContext,
+  api: PullRequestApi,
+  entry: ProviderEntry
+): void {
+  const repositories = (api as PullRequestApi & {
+    repositoriesManager?: {
+      folderManagers: FolderManager[];
+      onDidChangeFolderRepositories: vscode.Event<unknown>;
+    };
+  }).repositoriesManager;
+  if (!Array.isArray(repositories?.folderManagers) || typeof repositories.onDidChangeFolderRepositories !== 'function') {
+    console.warn('Commit Generater: Unsupported GitHub Pull Requests internals; chat.disableAIFeatures may hide PR generation.');
+    return;
+  }
+
+  const restorers = new Map<FolderManager, () => void>();
+  const patchManagers = () => {
+    for (const [manager, restore] of restorers) {
+      if (!repositories.folderManagers.includes(manager)) {
+        restore();
+        restorers.delete(manager);
+      }
+    }
+    for (const manager of repositories.folderManagers) {
+      if (restorers.has(manager) || typeof manager?.getTitleAndDescriptionProvider !== 'function') {
+        continue;
+      }
+      const original = manager.getTitleAndDescriptionProvider;
+      const descriptor = Object.getOwnPropertyDescriptor(manager, 'getTitleAndDescriptionProvider');
+      const lookup: FolderManager['getTitleAndDescriptionProvider'] = function (this: FolderManager, title) {
+        if (!vscode.workspace.getConfiguration('chat').get<boolean>('disableAIFeatures', false)) {
+          return original.call(this, title);
+        }
+        return !title || entry.title.toLowerCase().includes(title.toLowerCase()) ? entry : undefined;
+      };
+      try {
+        Object.defineProperty(manager, 'getTitleAndDescriptionProvider', { configurable: true, writable: true, value: lookup });
+        restorers.set(manager, () => {
+          // Do not overwrite a hook installed by another extension after ours.
+          if (manager.getTitleAndDescriptionProvider === lookup) {
+            if (descriptor) {
+              Object.defineProperty(manager, 'getTitleAndDescriptionProvider', descriptor);
+            } else {
+              Reflect.deleteProperty(manager, 'getTitleAndDescriptionProvider');
+            }
+          }
+        });
+      } catch (error) {
+        console.warn('Commit Generater: Could not keep standalone PR generation available:', error);
+      }
+    }
+  };
+  context.subscriptions.push(repositories.onDidChangeFolderRepositories(patchManagers));
+  context.subscriptions.push({ dispose: () => {
+    for (const restore of restorers.values()) {
+      restore();
+    }
+    restorers.clear();
+  } });
+  patchManagers();
+}
+
 function isProviderEntry(value: unknown): value is ProviderEntry {
   const entry = value as Partial<ProviderEntry> | undefined;
   return typeof entry?.title === 'string' && typeof entry.provider?.provideTitleAndDescription === 'function';
@@ -107,7 +180,8 @@ function register(context: vscode.ExtensionContext, api: PullRequestApi | undefi
   const dispatcher: TitleAndDescriptionProvider = {
     provideTitleAndDescription: (ctx, token) => {
       // Read GHPR's providers on every call: others (e.g. Copilot) may register after us.
-      const others = providers
+      const aiDisabled = vscode.workspace.getConfiguration('chat').get<boolean>('disableAIFeatures', false);
+      const others = providers && !aiDisabled
         ? Array.from(providers).filter((entry): entry is ProviderEntry => isProviderEntry(entry) && entry.provider !== dispatcher)
         : [];
       return dispatch(ctx, token, others);
@@ -115,6 +189,12 @@ function register(context: vscode.ExtensionContext, api: PullRequestApi | undefi
   };
   context.subscriptions.push(api.registerTitleAndDescriptionProvider(PROVIDER_TITLE, dispatcher));
   providers = moveToFront(api, dispatcher);
+  try {
+    allowStandaloneProvider(context, api, { title: PROVIDER_TITLE, provider: dispatcher });
+  } catch (error) {
+    // The optional compatibility shim must not invalidate public registration.
+    console.warn('Commit Generater: Could not initialize standalone PR compatibility:', error);
+  }
   if (!providers) {
     console.warn('Commit Generater: Unsupported GitHub Pull Requests internals; the ✨ button may use another generator.');
   }

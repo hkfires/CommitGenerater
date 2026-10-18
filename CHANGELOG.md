@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-10-18
+
+### Fixed
+
+- Keep Commit Generater's PR title and description button available when `chat.disableAIFeatures` is `true`, without re-enabling Copilot or changing the setting
+
 ## [1.1.0] - 2026-10-16
 
 ### Added

@@ -717,9 +717,43 @@ test('PR generation reports Git API failures instead of treating them as a missi
 });
 
 // Mirrors GHPR's GitApiImpl provider registry (src/api/api1.ts).
+// Mirrors GHPR 0.164/0.170: the UI asks a folder manager, whose AI gate
+// runs before the registered providers are consulted.
+class FakeFolderManager {
+  constructor(api) {
+    this.api = api;
+  }
+  getTitleAndDescriptionProvider(title) {
+    if (!this.api.aiDisabled) {
+      const entries = [...this.api._titleAndDescriptionProviders];
+      return title ? entries.find(entry => entry.title.toLowerCase().includes(title.toLowerCase())) : entries[0];
+    }
+  }
+  getAutoReviewer() {
+    return this.api.aiDisabled ? undefined : 'Copilot reviewer';
+  }
+}
+
 class FakePullRequestApi {
   constructor() {
     this._titleAndDescriptionProviders = new Set();
+    this.aiDisabled = false;
+    this.folderListeners = new Set();
+    this.repositoriesManager = {
+      folderManagers: [new FakeFolderManager(this)],
+      onDidChangeFolderRepositories: listener => {
+        this.folderListeners.add(listener);
+        return { dispose: () => this.folderListeners.delete(listener) };
+      },
+    };
+  }
+  addFolderManager() {
+    const manager = new FakeFolderManager(this);
+    this.repositoriesManager.folderManagers.push(manager);
+    for (const listener of this.folderListeners) {
+      listener({ added: manager });
+    }
+    return manager;
   }
   registerTitleAndDescriptionProvider(title, provider) {
     const entry = { title, provider };
@@ -739,10 +773,21 @@ async function flush() {
   await new Promise(resolve => setImmediate(resolve));
 }
 
-async function prProviderScenario({ mode = 'ask', api = new FakePullRequestApi(), installed = true, pick, log = [] } = {}) {
+async function prProviderScenario({ mode = 'ask', api = new FakePullRequestApi(), installed = true, pick, log = [], aiDisabled = false } = {}) {
+  api.aiDisabled = aiDisabled;
   const extensionListeners = [];
   let extension = installed ? { activate: async () => api } : undefined;
   const vscode = {
+    workspace: {
+      getConfiguration: section => {
+        assert.equal(section, 'chat');
+        return { get: (key, fallback) => {
+          assert.equal(key, 'disableAIFeatures');
+          assert.equal(fallback, false);
+          return api.aiDisabled;
+        } };
+      },
+    },
     extensions: {
       getExtension: id => {
         assert.equal(id, 'GitHub.vscode-pull-request-github');
@@ -781,8 +826,9 @@ async function prProviderScenario({ mode = 'ask', api = new FakePullRequestApi()
       }
       await flush();
     },
-    // What GHPR does when the ✨ button is clicked: call the first registered provider.
-    click: () => api.first().provider.provideTitleAndDescription({ commitMessages: [] }, { token: true }),
+    // The button exists only when GHPR's folder manager returns a provider.
+    click: () => api.repositoriesManager.folderManagers[0].getTitleAndDescriptionProvider()
+      ?.provider.provideTitleAndDescription({ commitMessages: [] }, { token: true }),
   };
 }
 
@@ -838,6 +884,113 @@ test('PR provider warns when Copilot is configured but unavailable', async () =>
   assert.equal(scenario.log.length, 1);
   assert.equal(scenario.log[0].length, 2, 'warning must be non-modal');
   assert.match(scenario.log[0][1], /GitHub Copilot is not available/);
+});
+
+test('PR generation remains visible with VS Code AI disabled without exposing Copilot', async () => {
+  const api = new FakePullRequestApi();
+  api.aiDisabled = true;
+  api.registerTitleAndDescriptionProvider('Generate with Copilot', copilotProvider([]));
+  const manager = api.repositoriesManager.folderManagers[0];
+  assert.equal(manager.getTitleAndDescriptionProvider(), undefined, 'GHPR hides the button before the fix');
+  const reviewerLookup = manager.getAutoReviewer;
+  const scenario = await prProviderScenario({ api, aiDisabled: true });
+
+  assert.equal(manager.getTitleAndDescriptionProvider().title, 'Commit Generater');
+  assert.equal(manager.getTitleAndDescriptionProvider('commit generater').title, 'Commit Generater');
+  assert.equal(manager.getTitleAndDescriptionProvider('Copilot'), undefined);
+  assert.equal(manager.getTitleAndDescriptionProvider('Unknown'), undefined);
+  assert.equal(manager.getAutoReviewer, reviewerLookup, 'reviewer support must not be patched');
+  assert.equal(manager.getAutoReviewer(), undefined);
+  assert.equal((await scenario.click()).title, 'our title');
+  assert.deepEqual(scenario.log.map(entry => entry[0]), ['commitGenerater'], 'no Copilot picker or call');
+  assert.equal(api.aiDisabled, true, 'must not change the user setting');
+});
+
+test('PR generation honours explicit provider settings with VS Code AI disabled', async () => {
+  for (const mode of ['commitGenerater', 'copilot']) {
+    const api = new FakePullRequestApi();
+    const scenario = await prProviderScenario({ api, mode, aiDisabled: true });
+    api.registerTitleAndDescriptionProvider('Generate with Copilot', copilotProvider(scenario.log));
+    const result = await scenario.click();
+    assert.equal(result?.title, mode === 'commitGenerater' ? 'our title' : undefined);
+    assert.deepEqual(scenario.log.map(entry => entry[0]), mode === 'commitGenerater' ? ['commitGenerater'] : ['warning']);
+  }
+});
+
+test('PR AI compatibility follows setting changes, new repositories and disposal', async () => {
+  const api = new FakePullRequestApi();
+  const manager = api.repositoriesManager.folderManagers[0];
+  const original = manager.getTitleAndDescriptionProvider;
+  const scenario = await prProviderScenario({ api });
+  api.registerTitleAndDescriptionProvider('Generate with Copilot', copilotProvider(scenario.log));
+  assert.equal(manager.getTitleAndDescriptionProvider('Copilot').title, 'Generate with Copilot');
+
+  api.aiDisabled = true;
+  assert.equal(manager.getTitleAndDescriptionProvider().title, 'Commit Generater');
+  assert.equal(manager.getTitleAndDescriptionProvider('Copilot'), undefined);
+  const added = api.addFolderManager();
+  assert.equal(added.getTitleAndDescriptionProvider().title, 'Commit Generater');
+  assert.equal(added.getTitleAndDescriptionProvider('Copilot'), undefined);
+  assert.equal(api.folderListeners.size, 1);
+
+  api.aiDisabled = false;
+  assert.equal(manager.getTitleAndDescriptionProvider('Copilot').title, 'Generate with Copilot');
+  assert.equal(added.getTitleAndDescriptionProvider('Copilot').title, 'Generate with Copilot');
+  api.repositoriesManager.folderManagers.pop();
+  for (const listener of api.folderListeners) {
+    listener({});
+  }
+  assert.equal(Object.hasOwn(added, 'getTitleAndDescriptionProvider'), false, 'removed managers are restored and released');
+  scenario.context.subscriptions.forEach(disposable => disposable.dispose());
+  assert.equal(api.folderListeners.size, 0);
+  assert.equal(manager.getTitleAndDescriptionProvider, original);
+  assert.equal(Object.hasOwn(manager, 'getTitleAndDescriptionProvider'), false);
+  assert.equal(Object.hasOwn(added, 'getTitleAndDescriptionProvider'), false);
+  api.aiDisabled = true;
+  assert.equal(manager.getTitleAndDescriptionProvider(), undefined);
+});
+
+test('PR AI compatibility preserves own method descriptors and later hooks', async () => {
+  const api = new FakePullRequestApi();
+  const manager = api.repositoriesManager.folderManagers[0];
+  Object.defineProperty(manager, 'getTitleAndDescriptionProvider', {
+    configurable: true, enumerable: true, writable: false,
+    value: manager.getTitleAndDescriptionProvider,
+  });
+  const descriptor = Object.getOwnPropertyDescriptor(manager, 'getTitleAndDescriptionProvider');
+  const scenario = await prProviderScenario({ api, aiDisabled: true });
+  assert.equal(manager.getTitleAndDescriptionProvider().title, 'Commit Generater');
+  const added = api.addFolderManager();
+  const laterHook = () => undefined;
+  added.getTitleAndDescriptionProvider = laterHook;
+  scenario.context.subscriptions.forEach(disposable => disposable.dispose());
+  assert.deepEqual(Object.getOwnPropertyDescriptor(manager, 'getTitleAndDescriptionProvider'), descriptor);
+  assert.equal(added.getTitleAndDescriptionProvider, laterHook);
+});
+
+test('PR AI compatibility tolerates unpatchable manager internals', async () => {
+  const api = new FakePullRequestApi();
+  Object.freeze(api.repositoriesManager.folderManagers[0]);
+  const scenario = await prProviderScenario({ api, aiDisabled: true });
+  assert.equal(api.first().title, 'Commit Generater', 'public registration remains intact');
+  assert.equal((await api.first().provider.provideTitleAndDescription({}, {})).title, 'our title');
+  scenario.context.subscriptions.forEach(disposable => disposable.dispose());
+});
+
+test('PR compatibility initialization errors do not invalidate public registration', async () => {
+  for (const failure of ['getter', 'subscription']) {
+    const api = new FakePullRequestApi();
+    if (failure === 'getter') {
+      Object.defineProperty(api, 'repositoriesManager', { get: () => { throw new Error('unsupported getter'); } });
+    } else {
+      api.repositoriesManager.onDidChangeFolderRepositories = () => { throw new Error('unsupported event'); };
+    }
+    const scenario = await prProviderScenario({ api, aiDisabled: true });
+    assert.equal(api.first().title, 'Commit Generater');
+    assert.equal((await api.first().provider.provideTitleAndDescription({}, {})).title, 'our title');
+    assert.deepEqual(scenario.log.map(entry => entry[0]), ['commitGenerater'], 'must not notify that integration failed');
+    scenario.context.subscriptions.forEach(disposable => disposable.dispose());
+  }
 });
 
 test('PR provider keeps the plain registration when GHPR internals differ', async () => {
