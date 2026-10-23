@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-10-23
+
+### Changed
+
+- Chat completion requests now use SSE streaming, with JSON fallback for providers that ignore the stream parameter
+- Incomplete streams are rejected to avoid returning truncated content; cancellation listeners and stream readers are cleaned up reliably
+
 ## [1.1.1] - 2026-10-18
 
 ### Fixed
